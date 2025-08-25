@@ -13,7 +13,7 @@ export const About = ({ name, summary }: AboutProps) => {
         {name ?? ""}
       </h1>
       {summary && (
-        <p className="mt-4 max-w-3xl whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300">
+        <p className="mt-4 whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300">
           {summary}
         </p>
       )}
