@@ -1,3 +1,5 @@
+import "server-only";
+
 import { ResumeDraft } from "@/utils/resume-from-pdf";
 
 interface HeaderProps {

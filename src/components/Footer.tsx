@@ -1,3 +1,4 @@
+import "server-only";
 interface FooterProps {
   name?: string;
 }
