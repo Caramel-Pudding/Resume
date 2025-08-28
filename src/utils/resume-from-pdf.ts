@@ -11,9 +11,6 @@ export type ResumeDraft = {
   summary?: string;
   links: string[];
   experience: Company[];
-  educationRaw?: string;
-  topSkills?: string[];
-  languages?: string[];
   email?: string;
 };
 
@@ -31,23 +28,14 @@ export type Company = {
 
 // ---- Config ---------------------------------------------------------------
 
-type SectionKey =
-  | "contact"
-  | "topSkills"
-  | "languages"
-  | "summary"
-  | "experience"
-  | "education";
+type SectionKey = "contact" | "summary" | "experience";
 
 type SectionConfig = { key: SectionKey; label: string; optional?: boolean };
 
 export const LINKEDIN_SECTIONS: SectionConfig[] = [
   { key: "contact", label: "Contact", optional: true },
-  { key: "topSkills", label: "Top Skills", optional: true },
-  { key: "languages", label: "Languages", optional: true },
   { key: "summary", label: "Summary" },
   { key: "experience", label: "Experience" },
-  { key: "education", label: "Education" },
 ];
 
 const NOISE_LINE_PATTERNS = [
@@ -162,25 +150,6 @@ export function dedupeKeepOrder<T>(arr: T[]) {
   return out;
 }
 
-function extractList(block?: string): string[] | undefined {
-  if (!block) return undefined;
-
-  const items = block
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    // strip bullets
-    .map((l) => l.replace(/^[•\-\*\u2022]+[\s\u00A0]*/, ""))
-    // collapse extra spaces
-    .map((l) => l.replace(/\s{2,}/g, " "))
-    // trim trailing commas/semicolons
-    .map((l) => l.replace(/[;,]\s*$/g, ""))
-    // keep short one-liners
-    .filter((l) => l.length > 0 && l.length <= 80);
-
-  return items.length ? dedupeKeepOrder(items) : undefined;
-}
-
 // ---- Main -----------------------------------------------------------------
 
 export const getResumeFromPdf = cache(
@@ -202,14 +171,13 @@ export const getResumeFromPdf = cache(
 
     const parts = splitSectionsWithRanges(normalized, LINKEDIN_SECTIONS);
 
-    // Summary / Experience / Education
+    // Summary / Experience
     const summary = parts.summary?.content;
     const experienceRaw = parts.experience?.content;
-    const educationRaw = parts.education?.content;
     const experience = experienceRaw ? parseExperience(experienceRaw) : [];
 
     // Name = first line of the "pre-summary trio"
-    const { trio, trioStartOffset } = getPreSummaryTrio(normalized);
+    const { trio } = getPreSummaryTrio(normalized);
     const name = trio?.[0];
     const career = trio?.[1];
     const location = trio?.[2];
@@ -220,24 +188,6 @@ export const getResumeFromPdf = cache(
     // Links (Contact-first + whole doc, includes bare domains)
     const links = extractLinksFrom(parts, normalized);
 
-    // Top Skills: plain list from section content
-    const topSkills = extractList(parts.topSkills?.content);
-
-    // Languages: cut at the trio start (if trio lies after languages start)
-    let languages: string[] | undefined;
-    const langSlice = parts.languages;
-    if (langSlice) {
-      const end =
-        trioStartOffset &&
-        trioStartOffset > langSlice.start &&
-        trioStartOffset <= langSlice.end
-          ? trioStartOffset
-          : langSlice.end;
-
-      const raw = normalized.slice(langSlice.start, end);
-      languages = extractList(raw);
-    }
-
     return {
       name,
       career,
@@ -245,9 +195,6 @@ export const getResumeFromPdf = cache(
       summary,
       links,
       experience,
-      educationRaw,
-      topSkills,
-      languages,
       email,
     };
   },

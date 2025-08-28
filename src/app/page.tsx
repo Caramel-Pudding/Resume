@@ -1,10 +1,8 @@
 // app/page.tsx — One-page resume reading directly from a PDF
 export const runtime = "nodejs"; // ensure Node runtime for pdf parsing
 import { getResumeFromPdf } from "@/utils/resume-from-pdf";
-import { Eductaion } from "@/components/Education";
 import { About } from "@/components/About";
 import { Experience } from "@/components/Experience";
-import { SkillsAndLanguages } from "@/components/SkillList";
 import { Contact } from "@/components/Contact";
 import { Links } from "@/components/Links";
 
@@ -27,14 +25,7 @@ export default async function Page() {
         )}
         <Contact email={data.email} />
         {data.experience && <Experience companies={data.experience} />}
-        {data.educationRaw && <Eductaion educationData={data.educationRaw} />}
         <Links links={data.links} />
-        {(data.topSkills || data.languages) && (
-          <SkillsAndLanguages
-            skills={data.topSkills}
-            languages={data.languages}
-          />
-        )}
       </div>
     </main>
   );
