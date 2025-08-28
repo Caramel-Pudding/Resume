@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { Code2, Languages as LanguagesIcon } from "lucide-react";
-import { dedupeKeepOrder } from "@/utils/resume-from-pdf";
 
 export type SkillsAndLanguagesProps = {
   skills?: string[];
@@ -9,10 +8,6 @@ export type SkillsAndLanguagesProps = {
   className?: string;
   maxSkills?: number;
   maxLanguages?: number;
-};
-
-const trimAll = (arr: string[]) => {
-  return arr.map((s) => s.trim()).filter(Boolean);
 };
 
 const Pill = ({ children }: { children: React.ReactNode }) => {
@@ -28,22 +23,7 @@ export const SkillsAndLanguages = ({
   languages = [],
   heading = "Skills & Languages",
   className = "",
-  maxSkills,
-  maxLanguages,
 }: SkillsAndLanguagesProps) => {
-  const niceSkills = useMemo(() => dedupeKeepOrder(trimAll(skills)), [skills]);
-  const niceLangs = useMemo(
-    () => dedupeKeepOrder(trimAll(languages)),
-    [languages],
-  );
-
-  const cutSkills =
-    typeof maxSkills === "number" ? niceSkills.slice(0, maxSkills) : niceSkills;
-  const cutLangs =
-    typeof maxLanguages === "number"
-      ? niceLangs.slice(0, maxLanguages)
-      : niceLangs;
-
   return (
     <section
       aria-label={heading}
@@ -72,8 +52,8 @@ export const SkillsAndLanguages = ({
             <h3 className="text-sm font-medium text-slate-200">Top Skills</h3>
           </div>
           <ul className="flex flex-wrap gap-2">
-            {cutSkills.length ? (
-              cutSkills.map((s) => (
+            {skills.length ? (
+              skills.map((s) => (
                 <li key={s}>
                   <Pill>{s}</Pill>
                 </li>
@@ -93,8 +73,8 @@ export const SkillsAndLanguages = ({
             <h3 className="text-sm font-medium text-slate-200">Languages</h3>
           </div>
           <ul className="flex flex-wrap gap-2">
-            {cutLangs.length ? (
-              cutLangs.map((l) => (
+            {languages.length ? (
+              languages.map((l) => (
                 <li key={l}>
                   <Pill>{l}</Pill>
                 </li>

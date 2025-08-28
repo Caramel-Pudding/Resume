@@ -20,7 +20,7 @@ export default async function Page() {
         {(data.summary || data.name) && (
           <About name={data.name} summary={data.summary} />
         )}
-        <Contact />
+        <Contact email={data.email} />
         {data.experience && <Experience companies={data.experience} />}
         {data.educationRaw && <Eductaion educationData={data.educationRaw} />}
         <Links links={data.links} />
