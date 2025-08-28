@@ -1,7 +1,4 @@
-import Image from "next/image";
-
 import { ResumeDraft } from "@/utils/resume-from-pdf";
-const AVATAR_PX = 32;
 interface HeaderProps {
   data: ResumeDraft;
 }
@@ -30,13 +27,6 @@ export const Header = ({ data }: HeaderProps) => {
     <header className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-900/40 border-b border-slate-200/60 dark:border-slate-800">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image
-            src="/avatar.jpeg"
-            alt={data.name ? `${data.name} avatar` : "Avatar"}
-            width={AVATAR_PX}
-            height={AVATAR_PX}
-            className="rounded-full object-cover"
-          />
           <div className="text-sm leading-tight">
             <div className="font-semibold">{data.name ?? "—"}</div>
             {/* Secondary line intentionally minimal; we avoid hard-coded stubs */}
