@@ -12,6 +12,7 @@ export type ResumeDraft = {
   educationRaw?: string;
   topSkills?: string[];
   languages?: string[];
+  email?: string; // <-- added
 };
 
 type Role = { title: string; dates: string; location: string };
@@ -178,16 +179,6 @@ function extractList(block?: string): string[] | undefined {
   return items.length ? dedupeKeepOrder(items) : undefined;
 }
 
-function extractLinks(text: string): string[] {
-  const hits = text.match(/\b(?:https?:\/\/|www\.)[^\s)]+/gi) || [];
-  const clean = hits.map((raw) => {
-    let url = raw.replace(/[)\].,;:!?]+$/g, "");
-    if (url.startsWith("www.")) url = "https://" + url;
-    return url;
-  });
-  return Array.from(new Set(clean));
-}
-
 // ---- Main -----------------------------------------------------------------
 
 export const getResumeFromPdf = cache(
@@ -219,8 +210,12 @@ export const getResumeFromPdf = cache(
     const { trio, trioStartOffset } = getPreSummaryTrio(normalized);
     const name = trio?.[0];
 
-    // Links (from whole doc)
-    const links = extractLinks(normalized);
+    // Email (prefer Contact)
+    const email =
+      extractEmail(parts.contact?.content) ?? extractEmail(normalized);
+
+    // Links (Contact-first + whole doc, includes bare domains)
+    const links = extractLinksFrom(parts, normalized);
 
     // Top Skills: plain list from section content
     const topSkills = extractList(parts.topSkills?.content);
@@ -248,6 +243,7 @@ export const getResumeFromPdf = cache(
       educationRaw,
       topSkills,
       languages,
+      email,
     };
   },
 );
@@ -427,4 +423,54 @@ export function parseExperience(raw: string): Company[] {
   }
 
   return companies;
+}
+
+function extractEmail(from?: string): string | undefined {
+  if (!from) return undefined;
+  const m = from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/i);
+  return m?.[0];
+}
+
+// add near your helpers
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/gi;
+
+function cleanUrl(u: string): string {
+  const url = u.trim().replace(/^[<(]+|[)>.,;:!?]+$/g, "");
+  if (url.startsWith("www.")) return "https://" + url;
+  if (
+    !/^https?:\/\//i.test(url) &&
+    /^[a-z0-9.-]+\.[a-z]{2,24}(?:\/\S+)?$/i.test(url)
+  ) {
+    return "https://" + url;
+  }
+  return url;
+}
+
+// replace your extractLinksFrom with this:
+function extractLinksFrom(
+  parts: Partial<Record<SectionKey, SectionSlice>>,
+  fullText: string,
+): string[] {
+  const contact = parts.contact?.content ?? "";
+
+  // 1) remove emails from Contact BEFORE scanning for bare domains
+  const contactNoEmails = contact.replace(EMAIL_RE, " ");
+
+  // 2) scheme/www links (Contact first, then whole doc)
+  const schemeRe = /\b(?:https?:\/\/|www\.)[^\s)]+/gi;
+  const a = contactNoEmails.match(schemeRe) ?? [];
+  const b = fullText.match(schemeRe) ?? [];
+
+  // 3) bare domains from Contact only (now emails are gone)
+  const bareRe = /\b(?:[a-z0-9-]+\.)+[a-z]{2,24}(?:\/[^\s)]+)?/gi;
+  const c = Array.from(contactNoEmails.matchAll(bareRe)).map((m) => m[0]);
+
+  // 4) merge, clean, dedupe, and keep non-emails
+  const seen = new Set<string>();
+  const all = [...a, ...b, ...c]
+    .map(cleanUrl)
+    .filter((x) => x && !/@/.test(x))
+    .filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+
+  return all;
 }
