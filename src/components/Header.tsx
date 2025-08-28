@@ -10,7 +10,7 @@ export const Header = ({ data }: HeaderProps) => {
     {
       id: "experience",
       label: "Experience",
-      show: Boolean(data.experienceRaw),
+      show: Boolean(data.experience),
     },
     { id: "education", label: "Education", show: Boolean(data.educationRaw) },
     { id: "links", label: "Links", show: (data.links?.length ?? 0) > 0 },
