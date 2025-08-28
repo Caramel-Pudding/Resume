@@ -1,4 +1,3 @@
-import "server-only";
 import React, { useMemo } from "react";
 import { Code2, Languages as LanguagesIcon } from "lucide-react";
 import { dedupeKeepOrder } from "@/utils/resume-from-pdf";

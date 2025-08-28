@@ -1,4 +1,3 @@
-import "server-only";
 interface AboutProps {
   name?: string;
   summary?: string;

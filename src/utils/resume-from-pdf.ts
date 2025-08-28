@@ -1,6 +1,5 @@
 // lib/get-resume-from-pdf.server.ts
 import { cache } from "react";
-import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import pdf from "pdf-parse";
@@ -9,10 +8,23 @@ export type ResumeDraft = {
   name?: string;
   summary?: string;
   links: string[];
-  experienceRaw?: string;
+  experience: Company[];
   educationRaw?: string;
   topSkills?: string[];
   languages?: string[];
+};
+
+type Role = { title: string; dates: string; location: string };
+type Section =
+  | { title: "The project"; paragraphs: string[] }
+  | { title: "Tech-stack"; techs: string[] }
+  | { title: "Highlights"; bullets: string[] };
+
+export type Company = {
+  name: string;
+  tenureSummary?: string;
+  roles: Role[];
+  sections: Section[];
 };
 
 // ---- Config ---------------------------------------------------------------
@@ -202,6 +214,7 @@ export const getResumeFromPdf = cache(
     const summary = parts.summary?.content;
     const experienceRaw = parts.experience?.content;
     const educationRaw = parts.education?.content;
+    const experience = experienceRaw ? parseExperience(experienceRaw) : [];
 
     // Name = first line of the "pre-summary trio"
     const { trio, trioStartOffset } = getPreSummaryTrio(normalized);
@@ -232,10 +245,191 @@ export const getResumeFromPdf = cache(
       name,
       summary,
       links,
-      experienceRaw,
+      experience,
       educationRaw,
       topSkills,
       languages,
     };
   },
 );
+
+/* ---------- Parser (date-anchored, minimal regex) ---------- */
+export function parseExperience(raw: string): Company[] {
+  const MONTH =
+    "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
+
+  // 1) Normalize spaces (all Unicode Zs) and dashes (all hyphen/dash forms) to avoid misses
+  // 2) Ensure labels are on their own lines
+  // 3) Insert a break before inline "Month YYYY" so dates never ride inside bullets
+  const normalized = raw
+    .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g, " ") // all weird spaces -> space
+    .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-") // all dashes -> "-"
+    .replace(/\s+(The project:|Tech-stack:|Highlights:)\s*/g, "\n$1\n")
+    .replace(
+      new RegExp(`(?<!^)(?<!\\n)\\b${MONTH}\\s+\\d{4}\\b`, "gi"),
+      (m) => `\n${m}`,
+    );
+
+  const lines = normalized.split(/\r?\n/).map((s) => s.trim());
+  const blank = (t: string) => t === "";
+  const nextNB = (i: number) => {
+    while (i < lines.length && blank(lines[i])) i++;
+    return i;
+  };
+  const prevNB = (i: number) => {
+    while (i >= 0 && blank(lines[i])) i--;
+    return i;
+  };
+
+  const labels = new Set(["The project:", "Tech-stack:", "Highlights:"]);
+  const isBullet = (t: string) => t.startsWith("-");
+  const isDate = (t: string) =>
+    new RegExp(
+      `^${MONTH}\\s+\\d{4}\\s*-\\s*(?:Present|${MONTH}\\s+\\d{4})(?:\\s*\\([^)]*\\))?$`,
+      "i",
+    ).test(t);
+  const isTenure = (t: string) => /year|month/i.test(t) && !isDate(t);
+  const isLocation = (t: string) =>
+    t.includes(",") && !isDate(t) && !labels.has(t);
+
+  // Build role blocks strictly around date anchors
+  type Block = {
+    companyIdx: number;
+    tenureIdx: number | null;
+    roleIdx: number;
+    dateIdx: number;
+    locationIdx: number | null;
+  };
+  const blocks: Block[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!isDate(line) || isBullet(line)) continue;
+
+    const roleIdx = prevNB(i - 1);
+    let companyIdx = prevNB(roleIdx - 1);
+    let tenureIdx: number | null = null;
+
+    // allow optional tenure between company and role
+    if (isTenure(lines[companyIdx] || "")) {
+      tenureIdx = companyIdx;
+      companyIdx = prevNB(companyIdx - 1);
+    }
+
+    const after = nextNB(i + 1);
+    const locationIdx = isLocation(lines[after] || "") ? after : null;
+
+    if (companyIdx >= 0 && roleIdx >= 0) {
+      blocks.push({ companyIdx, tenureIdx, roleIdx, dateIdx: i, locationIdx });
+    }
+  }
+
+  console.log(blocks);
+
+  // Group by company order of first appearance
+  const companyOrder = [...new Set(blocks.map((b) => b.companyIdx))];
+
+  const companies: Company[] = [];
+
+  for (let k = 0; k < companyOrder.length; k++) {
+    const cIdx = companyOrder[k];
+    const nextCIdx = companyOrder[k + 1] ?? lines.length;
+
+    const own = blocks
+      .filter((b) => b.companyIdx === cIdx)
+      .sort((a, b) => a.dateIdx - b.dateIdx);
+    const name = lines[cIdx];
+    const tenureSummary =
+      own[0]?.tenureIdx != null ? lines[own[0].tenureIdx] : undefined;
+    const roles: Role[] = own.map((b) => ({
+      title: lines[b.roleIdx] || "",
+      dates: lines[b.dateIdx],
+      location: b.locationIdx != null ? lines[b.locationIdx] : "",
+    }));
+
+    // Sections live after last role tail until the next company's header line
+    const lastTail = own.length
+      ? Math.max(...own.map((b) => b.locationIdx ?? b.dateIdx))
+      : cIdx;
+    const start = nextNB(lastTail + 1),
+      end = nextCIdx;
+
+    const sections: Section[] = [];
+    let i = start;
+
+    const untilNextLabel = (j: number) => {
+      while (j < end && !labels.has(lines[j]))
+        j = blank(lines[j]) ? nextNB(j + 1) : j + 1;
+      return j;
+    };
+
+    while (i < end) {
+      const tag = lines[i];
+      if (!labels.has(tag)) {
+        i++;
+        continue;
+      }
+
+      if (tag === "The project:") {
+        i = nextNB(i + 1);
+        const stop = untilNextLabel(i),
+          paras: string[] = [];
+        let buf = "";
+        for (; i < stop; i++) {
+          const t = lines[i];
+          if (blank(t)) {
+            if (buf) {
+              paras.push(buf);
+              buf = "";
+            }
+            i = nextNB(i + 1) - 1;
+            continue;
+          }
+          buf = buf ? `${buf} ${t}` : t;
+        }
+        if (buf) paras.push(buf);
+        if (paras.length)
+          sections.push({ title: "The project", paragraphs: paras });
+        continue;
+      }
+
+      if (tag === "Tech-stack:") {
+        i = nextNB(i + 1);
+        const stop = untilNextLabel(i);
+        const techs = lines
+          .slice(i, stop)
+          .filter((s) => !blank(s))
+          .join(" ")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (techs.length) sections.push({ title: "Tech-stack", techs });
+        i = stop;
+        continue;
+      }
+
+      // Highlights
+      i = nextNB(i + 1);
+      const stop = untilNextLabel(i),
+        bullets: string[] = [];
+      let buf = "";
+      for (; i < stop; i++) {
+        const t = lines[i];
+        if (blank(t)) {
+          i = nextNB(i + 1) - 1;
+          continue;
+        }
+        if (t.startsWith("-")) {
+          if (buf) bullets.push(buf);
+          buf = t.replace(/^-+\s*/, "");
+        } else buf = buf ? `${buf} ${t}` : t;
+      }
+      if (buf) bullets.push(buf);
+      if (bullets.length) sections.push({ title: "Highlights", bullets });
+    }
+
+    companies.push({ name, tenureSummary, roles, sections });
+  }
+
+  return companies;
+}
