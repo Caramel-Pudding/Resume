@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Code2, Languages as LanguagesIcon } from "lucide-react";
 
 export type SkillsAndLanguagesProps = {
