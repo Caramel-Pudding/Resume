@@ -11,16 +11,6 @@ export const Header = ({ data }: HeaderProps) => {
       label: "Experience",
       show: Boolean(data.experience),
     },
-    { id: "education", label: "Education", show: Boolean(data.educationRaw) },
-    { id: "links", label: "Links", show: (data.links?.length ?? 0) > 0 },
-    // Contact is shown if we can route them to at least one profile link
-    {
-      id: "contact",
-      label: "Contact",
-      show: Boolean(
-        (data.links ?? []).some((l) => /linkedin|github|mailto:/i.test(l)),
-      ),
-    },
   ].filter((s) => s.show);
 
   return (

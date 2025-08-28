@@ -33,7 +33,7 @@ export default async function RootLayout({
       >
         <Header data={data} />
         {children}
-        <Footer name={data.name} />
+        <Footer name={data.name} links={data.links} />
       </body>
     </html>
   );

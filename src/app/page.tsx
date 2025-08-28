@@ -3,8 +3,6 @@ export const runtime = "nodejs"; // ensure Node runtime for pdf parsing
 import { getResumeFromPdf } from "@/utils/resume-from-pdf";
 import { About } from "@/components/About";
 import { Experience } from "@/components/Experience";
-import { Contact } from "@/components/Contact";
-import { Links } from "@/components/Links";
 
 export default async function Page() {
   const data = await getResumeFromPdf();
@@ -23,9 +21,7 @@ export default async function Page() {
             summary={data.summary}
           />
         )}
-        <Contact email={data.email} />
         {data.experience && <Experience companies={data.experience} />}
-        <Links links={data.links} />
       </div>
     </main>
   );

@@ -11,7 +11,6 @@ export type ResumeDraft = {
   summary?: string;
   links: string[];
   experience: Company[];
-  email?: string;
 };
 
 type Role = { title: string; dates: string; location: string };
@@ -182,12 +181,10 @@ export const getResumeFromPdf = cache(
     const career = trio?.[1];
     const location = trio?.[2];
     // Email (prefer Contact)
-    const email =
-      extractEmail(parts.contact?.content) ?? extractEmail(normalized);
 
     // Links (Contact-first + whole doc, includes bare domains)
     const links = extractLinksFrom(parts, normalized);
-
+    console.log(parts, normalized, links);
     return {
       name,
       career,
@@ -195,7 +192,6 @@ export const getResumeFromPdf = cache(
       summary,
       links,
       experience,
-      email,
     };
   },
 );
@@ -377,17 +373,18 @@ export function parseExperience(raw: string): Company[] {
   return companies;
 }
 
-function extractEmail(from?: string): string | undefined {
-  if (!from) return undefined;
-  const m = from.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/i);
-  return m?.[0];
-}
-
-// add near your helpers
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,24}/gi;
 
+function extractEmails(contact: string, fullText: string): string[] {
+  const inContact = Array.from(contact.matchAll(EMAIL_RE)).map((m) => m[0]);
+  const inWholeDoc = Array.from(fullText.matchAll(EMAIL_RE)).map((m) => m[0]);
+  return dedupeKeepOrder([...inContact, ...inWholeDoc]).map(
+    (e) => `mailto:${e}`,
+  );
+}
 function cleanUrl(u: string): string {
   const url = u.trim().replace(/^[<(]+|[)>.,;:!?]+$/g, "");
+  if (url.startsWith("mailto:")) return url; // keep as-is
   if (url.startsWith("www.")) return "https://" + url;
   if (
     !/^https?:\/\//i.test(url) &&
@@ -398,31 +395,30 @@ function cleanUrl(u: string): string {
   return url;
 }
 
-// replace your extractLinksFrom with this:
 function extractLinksFrom(
   parts: Partial<Record<SectionKey, SectionSlice>>,
   fullText: string,
 ): string[] {
   const contact = parts.contact?.content ?? "";
 
-  // 1) remove emails from Contact BEFORE scanning for bare domains
+  // emails first (Contact-priority), as mailto:
+  const emails = extractEmails(contact, fullText);
+
+  // remove emails from Contact BEFORE scanning for bare domains
   const contactNoEmails = contact.replace(EMAIL_RE, " ");
 
-  // 2) scheme/www links (Contact first, then whole doc)
+  // scheme/www links (Contact first, then whole doc)
   const schemeRe = /\b(?:https?:\/\/|www\.)[^\s)]+/gi;
   const a = contactNoEmails.match(schemeRe) ?? [];
   const b = fullText.match(schemeRe) ?? [];
 
-  // 3) bare domains from Contact only (now emails are gone)
+  // bare domains from Contact only (emails already removed)
   const bareRe = /\b(?:[a-z0-9-]+\.)+[a-z]{2,24}(?:\/[^\s)]+)?/gi;
   const c = Array.from(contactNoEmails.matchAll(bareRe)).map((m) => m[0]);
 
-  // 4) merge, clean, dedupe, and keep non-emails
+  // merge, clean, dedupe (keep order)
   const seen = new Set<string>();
-  const all = [...a, ...b, ...c]
+  return [...emails, ...a, ...b, ...c]
     .map(cleanUrl)
-    .filter((x) => x && !/@/.test(x))
-    .filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
-
-  return all;
+    .filter((x) => x && (seen.has(x) ? false : (seen.add(x), true)));
 }
