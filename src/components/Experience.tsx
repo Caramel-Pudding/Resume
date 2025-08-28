@@ -29,15 +29,11 @@ function CompanyCard({ company }: { company: Company }) {
   const locs = company.roles.map((r) => r.location).filter(Boolean);
   const uniq = [...new Set(locs)];
   const hoisted = uniq.length === 1 && locs.length >= 2 ? uniq[0] : undefined;
-  const meta = [company.tenureSummary, hoisted].filter(Boolean).join(" • ");
 
   return (
     <div>
       <header className="mb-2">
         <h3 className="text-lg font-semibold tracking-tight">{company.name}</h3>
-        {meta && (
-          <p className="text-sm text-slate-600 dark:text-slate-300">{meta}</p>
-        )}
       </header>
 
       <div className="space-y-3">

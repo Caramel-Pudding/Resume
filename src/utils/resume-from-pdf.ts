@@ -22,7 +22,6 @@ type Section =
 
 export type Company = {
   name: string;
-  tenureSummary?: string;
   roles: Role[];
   sections: Section[];
 };
@@ -324,8 +323,6 @@ export function parseExperience(raw: string): Company[] {
     }
   }
 
-  console.log(blocks);
-
   // Group by company order of first appearance
   const companyOrder = [...new Set(blocks.map((b) => b.companyIdx))];
 
@@ -339,8 +336,6 @@ export function parseExperience(raw: string): Company[] {
       .filter((b) => b.companyIdx === cIdx)
       .sort((a, b) => a.dateIdx - b.dateIdx);
     const name = lines[cIdx];
-    const tenureSummary =
-      own[0]?.tenureIdx != null ? lines[own[0].tenureIdx] : undefined;
     const roles: Role[] = own.map((b) => ({
       title: lines[b.roleIdx] || "",
       dates: lines[b.dateIdx],
@@ -428,7 +423,7 @@ export function parseExperience(raw: string): Company[] {
       if (bullets.length) sections.push({ title: "Highlights", bullets });
     }
 
-    companies.push({ name, tenureSummary, roles, sections });
+    companies.push({ name, roles, sections });
   }
 
   return companies;
