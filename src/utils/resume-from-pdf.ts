@@ -6,13 +6,15 @@ import pdf from "pdf-parse";
 
 export type ResumeDraft = {
   name?: string;
+  career?: string;
+  location?: string;
   summary?: string;
   links: string[];
   experience: Company[];
   educationRaw?: string;
   topSkills?: string[];
   languages?: string[];
-  email?: string; // <-- added
+  email?: string;
 };
 
 type Role = { title: string; dates: string; location: string };
@@ -209,7 +211,8 @@ export const getResumeFromPdf = cache(
     // Name = first line of the "pre-summary trio"
     const { trio, trioStartOffset } = getPreSummaryTrio(normalized);
     const name = trio?.[0];
-
+    const career = trio?.[1];
+    const location = trio?.[2];
     // Email (prefer Contact)
     const email =
       extractEmail(parts.contact?.content) ?? extractEmail(normalized);
@@ -237,6 +240,8 @@ export const getResumeFromPdf = cache(
 
     return {
       name,
+      career,
+      location,
       summary,
       links,
       experience,

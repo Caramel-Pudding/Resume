@@ -1,5 +1,8 @@
 // components/About.tsx
-type AboutProps = { name?: string; summary?: string };
+import { ResumeDraft } from "@/utils/resume-from-pdf";
+import { Briefcase, MapPin } from "lucide-react";
+
+type AboutProps = Pick<ResumeDraft, "name" | "career" | "location" | "summary">;
 
 function parseSummary(summary?: string) {
   if (!summary)
@@ -25,7 +28,6 @@ function parseSummary(summary?: string) {
     iWhat >= 0
       ? text.slice(iWhat + WHAT.length, iTools >= 0 ? iTools : undefined).trim()
       : "";
-
   const bullets = whatBlock
     .split("\n")
     .map((l) => l.trim())
@@ -47,7 +49,35 @@ function parseSummary(summary?: string) {
   return { intro: introParagraphs, bullets, toolbox };
 }
 
-export const About = ({ name, summary }: AboutProps) => {
+function MetaRow({
+  icon: Icon,
+  children,
+  prominent = false,
+}: {
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  children: React.ReactNode;
+  prominent?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icon
+        className="mt-0.5 h-5 w-5 text-slate-500 dark:text-slate-400"
+        aria-hidden
+      />
+      <div
+        className={
+          prominent
+            ? "text-lg sm:text-xl font-semibold tracking-tight text-slate-700 dark:text-slate-300 leading-snug"
+            : "text-slate-700 dark:text-slate-300"
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export const About = ({ name, career, location, summary }: AboutProps) => {
   const { intro, bullets, toolbox } = parseSummary(summary);
 
   return (
@@ -60,9 +90,21 @@ export const About = ({ name, summary }: AboutProps) => {
         {name ?? ""}
       </h1>
 
+      {/* Meta (column): career emphasized, location normal — no pills */}
+      {(career || location) && (
+        <div className="mt-3 max-w-3xl space-y-2">
+          {career && (
+            <MetaRow icon={Briefcase} prominent>
+              {career}
+            </MetaRow>
+          )}
+          {location && <MetaRow icon={MapPin}>{location}</MetaRow>}
+        </div>
+      )}
+
       {/* Intro */}
       {intro.length > 0 && (
-        <div className="mt-4 max-w-3xl space-y-4 text-slate-700 dark:text-slate-300">
+        <div className="mt-5 max-w-3xl space-y-4 text-slate-700 dark:text-slate-300">
           {intro.map((p, i) => (
             <p key={i} className="leading-relaxed">
               {p}

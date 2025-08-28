@@ -18,7 +18,12 @@ export default async function Page() {
         className="mx-auto max-w-5xl px-4 sm:px-6 py-10 space-y-16"
       >
         {(data.summary || data.name) && (
-          <About name={data.name} summary={data.summary} />
+          <About
+            name={data.name}
+            career={data.career}
+            location={data.location}
+            summary={data.summary}
+          />
         )}
         <Contact email={data.email} />
         {data.experience && <Experience companies={data.experience} />}
